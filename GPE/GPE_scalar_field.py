@@ -7,11 +7,15 @@ class GPE_scalar_field:
         for i in range(dim):
             self.my_shape=self.my_shape+(N,)
         self.K_shape = (self.s,)+self.my_shape
+
+        print("class shapes",self.my_shape,self.K_shape)
         
         
         
         self.psi = np.zeros(self.my_shape,dtype=np.complex64)
         self.psi = 1.0*ini_psi
+
+        self.mass_ini = np.sum(np.abs(ini_psi)**2) 
         
         print(self.my_shape,self.psi.shape)
         
@@ -39,9 +43,10 @@ class GPE_scalar_field:
     def do_fft(self,s_cntr,lmda,dt):
         self.f_t = np.fft.fftn(self.f,self.my_shape)
     
-        #(1+i*a[s][s]*lmda)*f_t = ft(rhs)
+        #(1+i*dt*a[s][s]*lmda)*f_t = ft(rhs)
         self.f_t = self.f_t/(1.0+1j*dt*lmda*self.im_A[s_cntr][s_cntr])
         self.f = np.fft.ifftn(self.f_t,self.my_shape)
+        #print("f shape",self.f_t.shape,self.f.shape)
         
     def update_stage_sum(self,s_cntr,dt):
         for i in range(s_cntr):
@@ -54,7 +59,7 @@ class GPE_scalar_field:
         #print("sncntr ",s_cntr)
        # print("psi shape",self.psi.shape,"f shape",self.f.shape)
         self.ex_K[s_cntr,:] = self.ex_rhs(self.f,*args)
-        self.im_K[s_cntr,:] = self.im_rhs(self.f_t,args[0])
+        self.im_K[s_cntr,:] = self.im_rhs(self.f_t,*args)
         
     def sum_contributions(self,dt):
         for i in range(self.s):
@@ -62,6 +67,10 @@ class GPE_scalar_field:
             
         self.f = 0.0+self.psi
         
+    def calc_mass(self):
+        return(np.sum(np.abs(self.psi)**2).flatten())
+    
+
         
         #im_rhs takes only fourier space vector 
         
