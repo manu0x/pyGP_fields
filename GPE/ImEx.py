@@ -20,4 +20,4 @@ class ImEx:
         
     def cal_reg_of_stab(self):
         self.r_of_stb = 1.2+1j*1.2
-        return(self.r_o_f)
+        return(self.r_of_stb)
