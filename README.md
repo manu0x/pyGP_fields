@@ -34,9 +34,9 @@ If at current time($t$), solution is $\psi_t$ and we want to find solution $\psi
 >>>we get 
 >>>        $$\psi_k = f_r  + i(dt)A_{ii}^{im}\alpha\nabla^n\psi_k$$
 >>>Going to Fourier space, denoting corresponding quantities in Fourier space with hat($\hat{()}$):
->>>        $$\hat{\psi_k} = \frac{\hat{f_r}}{\left[1+(dt)(A_{ii}^{im})\Lambda\right]}$$
+>>>        $$\hat{\psi_k} = \frac{\hat{f_r}}{\left[1+i(dt)(A_{ii}^{im})\Lambda\right]}$$
 >>>  where 
->>>        $$\Lambda\equiv -(ik)^n$$
+>>>        $$\Lambda\equiv -\alpha (ik)^n$$
 
 >>>  We find $\psi_k$ by doing inverse FFT. Then we update $K_i^{im}$ and $K_i^{ex}$, by evaluating $i \alpha(\nabla^n\psi_k)$ and $f(\psi_k,t,\vec{x})$ i.e. 
 >>>  given RHS of given PDE with $\psi_k$.
