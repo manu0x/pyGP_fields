@@ -15,7 +15,7 @@ Please see [this 1-d KdV example](https://github.com/manu0x/pyGP_fields/blob/mai
 
 
 
-
+Here are class details:
    
 class **GPE\_scalar\_field**
 
@@ -68,12 +68,38 @@ This function sums up contriutions from all the previous substages to�
 
 * * *
 
-Data descriptors defined here:  
 
-**\_\_dict\_\_**
+# ImEx class
 
-dictionary for instance variables (if defined)
+This class basically holds the Butcher Tableau for implicit and explicit components.
+Class object is initialted by:
 
-**\_\_weakref\_\_**
+~~~
+imx = ImEx(s,im_A,ex_A,im_B,ex_B,im_C,ex_C)
+~~~
 
-list of weak references to the object (if defined)
+where im_A is A of Butcher Tableau for implicit method while ex_A is A for explicit part. Similarly for B and C with correspondence with tableau as follows:
+
+~~~
+
+  |
+C |     A
+  |
+------------
+  |    B
+
+~~~
+
+For example, one of the schemes (scheme 17) from [Higueras et. all](https://www.sciencedirect.com/science/article/pii/S0377042714002477) can be stored as:
+
+~~~
+ex_A    = np.array([[0,0,0],[5/6.,0,0],[11/24,11/24,0]])
+im_A = np.array([[2./11,0,0],[205/462.,2./11,0],[2033/4620,21/110,2/11]])
+im_B = np.array([24/55.,1./5,4./11])
+ex_B = np.array([24/55.,1./5,4./11])
+
+imx = ImEx(3,im_A,ex_A,im_B,ex_B)
+
+~~~
+
+Here we have not given Cs because we might not require those in some cases. But if one has direct time dependence, arrays for im_C and ex_C should also be passed.
