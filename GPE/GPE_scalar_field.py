@@ -9,7 +9,7 @@ class GPE_scalar_field:
           3) im_rhs-> function that gives the linear rhs of PDE that is to be solved implicitly
           4) ex_rhs-> function that gives the remaining rhs terms, that to be solved explicilty
           5) imx-> is an object of class ImEx holding all coefficients of ImEx RK scheme to be used
-          6) ini_psi-> Initial condition of psi, this is given as a complex np array of shape (N,)^dim i.e for 3d it of shape (N,N,N). The dtype should be complex even if the function is purely real.
+          6) ini_psi-> Initial condition of psi, this is given as a complex np array of shape (N,)^dim i.e for 3d case it is of shape (N,N,N). The dtype should be complex even if the function is purely real.
           
           Please note that by design the 1st argument to im_rhs func is FT(psi) and for ex_rhs the 1st argument is psi itself. Rest of arguments are passed as a common argument-list
            which consist of all the arguments passed args in update_K function below. 
