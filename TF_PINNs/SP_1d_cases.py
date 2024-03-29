@@ -28,8 +28,8 @@ import os
 # In[2]:
 
 
-sys.path.append('/Users/rajvanmp/k@ust_learn/TF_PINNs')
-
+#sys.path.append('/Users/rajvanmp/k@ust_learn/TF_PINNs')
+sys.path.append('/home/rajvanmp/TF_PINNs')
 
 # In[3]:
 
@@ -529,6 +529,7 @@ def run_case(sig,each_subepoch=10000,ep_num=5):
     
         
     base_address = "/Users/rajvanmp/station_X/pyGP_fields/"    
+    base_address = "/home/rajvanmp/pyGP_fields/"
     fpini_name = "psi_ini_"+str(sig) 
     address_ini = base_address+fpini_name+".npy"
     addess_case = base_address+"TF_PINNs/case"+str(sig)
@@ -581,8 +582,11 @@ def run_case(sig,each_subepoch=10000,ep_num=5):
     losses=[]
     for i in range(ep_num):
         epochs_done = each_subepoch+epochs_done
-        losses,best_params_c = sp.train(x_dom,x_bndry,f_bndry_norm,x_prd ,n_epochs =each_subepoch)
-        losses=losses+losses
+        cur_losses,best_params_c = sp.train(x_dom,x_bndry,f_bndry_norm,x_prd ,n_epochs =each_subepoch)
+        #losses,best_params_c = sp.train(x_dom,x_bndry,f_bndry_norm,x_prd ,n_epochs =each_subepoch)
+        print("lenloss1",len(losses),i)
+        losses=losses+cur_losses
+        print("lenloss2",len(losses))
         sp.model.set_weights(best_params_c)
         modelsave_name = "best_param_"+str(epochs_done)+".keras"
         modelsave_path = os.path.join(addess_case,modelsave_name)
@@ -598,7 +602,7 @@ def run_case(sig,each_subepoch=10000,ep_num=5):
 
 for i in range(1,6):
         sigmak = i*50.0
-        run_case(sigmak,each_subepoch=2,ep_num=2)
+        run_case(sigmak,each_subepoch=10000,ep_num=20)
 
 
 
