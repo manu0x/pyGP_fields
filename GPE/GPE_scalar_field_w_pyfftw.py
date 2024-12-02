@@ -30,7 +30,7 @@ class GPE_scalar_field_w_pyfftw:
         
         
         
-        self.psi = np.zeros(self.my_shape,dtype=np.complex64)
+        self.psi = np.zeros(self.my_shape,dtype=np.complex128)
         self.psi = 1.0*ini_psi
 
         self.mass_ini = np.sum(np.abs(ini_psi)**2) 

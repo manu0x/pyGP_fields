@@ -1,6 +1,6 @@
 import numpy as np
 
-class GPE_scalar_field:
+class GPE_scalar_field_relax:
     '''This class stores the variables for a complex scalar field and necessary utilities for solving associated GPE-like PDE using ImEx RK methods '''
     def __init__(self,dim,N,im_rhs=None,ex_rhs=None,imx=None,ini_psi=None,relax=False):
         '''Initializer function, takes following arguments:
@@ -14,6 +14,8 @@ class GPE_scalar_field:
           Please note that by design the 1st argument to im_rhs func is FT(psi) and for ex_rhs the 1st argument is psi itself. Rest of arguments are passed as a common argument-list
            which consist of all the arguments passed args in update_K function below. 
           '''
+        #self.dx = dx
+
         self.my_shape=()
         self.s = imx.s
         '''s is no. of stages in ImEx RK method'''
@@ -23,6 +25,10 @@ class GPE_scalar_field:
         self.rel_gamma = 1.0
         self.rel_num_sum = 0.0
         self.rel_den_sum = 0.0
+
+        self.term1=0.0
+        self.term2=0.0
+        self.term3=0.0
         
         for i in range(dim):
             self.my_shape=self.my_shape+(N,)
@@ -33,7 +39,7 @@ class GPE_scalar_field:
         
         
         
-        self.psi = np.zeros(self.my_shape,dtype=np.complex64)
+        self.psi = np.zeros(self.my_shape,dtype=np.complex128)
         self.psi = 1.0*ini_psi
 
         self.mass_ini = np.sum(np.abs(ini_psi)**2) 
@@ -46,7 +52,7 @@ class GPE_scalar_field:
         
         self.f = 1.0*self.psi
         
-        self.im_K = np.zeros(self.K_shape,dtype=np.complex64)
+        self.im_K = np.zeros(self.K_shape,dtype=np.complex128)
         self.ex_K = np.zeros_like(self.im_K)
         
         
@@ -81,17 +87,21 @@ class GPE_scalar_field:
             else:
                 self.f = self.f + dt*self.ex_A[s_cntr][i]*self.ex_K[i]+ dt*self.im_A[s_cntr][i]*self.im_K[i]
             
-    def update_K(self,s_cntr,*args):
+    def update_K(self,s_cntr,dt,*args):
         '''This function stores the contribution from particular stage into K vectors'''
         #print("sncntr ",s_cntr)
        # print("psi shape",self.psi.shape,"f shape",self.f.shape)
         if (s_cntr==0)and(self.relax):
             self.rel_num_sum=0.0
+            self.term1 = 0.0
         self.ex_K[s_cntr,:] = self.ex_rhs(self.f,*args)
         self.im_K[s_cntr,:] = self.im_rhs(self.f_t,*args)
         if(self.relax):
-            #self.rel_num_sum+= np.sum(np.abs(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f-self.psi)))
-            self.rel_num_sum+= (np.sum(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f-self.psi)))
+        #    #self.rel_num_sum+= np.sum(np.abs(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f-self.psi)))
+            self.rel_num_sum+= np.sum(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f)) +\
+                            np.sum((self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*np.conj(self.f))
+            self.term1+=( np.sum(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f))  +\
+                            np.sum((self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*np.conj(self.f)))
             #self.rel_num_sum+=np.sum((self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr]).real *(self.f-self.psi).real)
             #print(np.abs(np.sum(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f-self.psi))),np.sum((self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr]).real *(self.f-self.psi).real))
 
@@ -101,20 +111,36 @@ class GPE_scalar_field:
     def sum_contributions(self,dt):
         '''This function sums up the final contributions from all the stages weighted by respective coefficients(B(or b) from Butcher Tableau)'''
         term = np.zeros_like(self.psi)
+        term_rel_den = 0.0
+        term_rel_num = 0.0
         for i in range(self.s):
             term+=(dt*self.ex_B[i]*self.ex_K[i]+ dt*self.im_B[i]*self.im_K[i])
+            term_rel_den+= (self.ex_B[i]*self.ex_K[i]+ self.im_B[i]*self.im_K[i])
+
+            #for ii in range(self.s):
+            #    term_rel_num+=(self.ex_A[i][ii]*self.ex_K[ii]+ self.im_A[i][ii]*self.im_K[ii])
+            
             
         
         if (self.relax):
-            self.rel_den_sum = np.sum(np.conj(term)*term)
+            self.rel_den_sum = (np.sum(np.conj(term_rel_den)*term_rel_den))
+            #self.rel_num_sum = np.sum(np.conj(term_rel_den)*term_rel_num) + np.sum(term_rel_den*np.conj(term_rel_num))
+            #self.term2 = np.sum(np.conj(term_rel_den)*term_rel_num) + np.sum(term_rel_den*np.conj(term_rel_num))
+            self.term3 = (np.sum(np.conj(term_rel_den)*self.psi+np.conj(self.psi)*term_rel_den))
+            #self.rel_num_sum = np.sum(np.conj(term_rel_den)*term_rel_num)
+            #print("dndn",self.rel_den_sum,self.rel_num_sum)
 
-            self.rel_gamma = np.abs(2.0*dt*self.rel_num_sum/self.rel_den_sum)
+            self.rel_gamma = 1.0*np.abs(-self.term3/(dt*self.rel_den_sum))#np.abs(2.0*self.rel_num_sum/self.rel_den_sum)
 
-            #print("rrRel gamma is ",self.rel_gamma,2.0*dt*self.rel_num_sum/self.rel_den_sum,self.rel_den_sum)
-
-        
+            #print("rrRel gamma is ",self.rel_gamma,self.rel_num_sum/self.rel_den_sum,self.rel_den_sum,self.rel_num_sum)
+                
+        mass_old = np.sum(np.conj(self.psi)*self.psi)
 
         self.psi = self.psi + self.rel_gamma*term
+        mass_new = np.sum(np.conj(self.psi)*self.psi)
+        #print("Mass change",np.abs(mass_old-mass_new), np.imag( self.rel_den_sum),self.rel_gamma)
+    
+
             
         self.f = 0.0+self.psi
         

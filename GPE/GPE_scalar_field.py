@@ -26,7 +26,7 @@ class GPE_scalar_field:
         
         
         
-        self.psi = np.zeros(self.my_shape,dtype=np.complex64)
+        self.psi = np.zeros(self.my_shape,dtype=np.complex128)
         self.psi = 1.0*ini_psi
 
         self.mass_ini = np.sum(np.abs(ini_psi)**2) 
@@ -39,7 +39,7 @@ class GPE_scalar_field:
         
         self.f = 1.0*self.psi
         
-        self.im_K = np.zeros(self.K_shape,dtype=np.complex64)
+        self.im_K = np.zeros(self.K_shape,dtype=np.complex128)
         self.ex_K = np.zeros_like(self.im_K)
         
         
