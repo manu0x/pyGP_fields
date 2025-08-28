@@ -4,3 +4,4 @@ test*
 test*/*
 *.npy
 *.hdf5
+data/
