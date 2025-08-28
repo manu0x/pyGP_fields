@@ -68,7 +68,7 @@ if __name__=="__main__":
 
     
     case="imex_"+imex_sch+"_"+str(m)+"_"+str(dt)
-    save_dir = "./data/"
+    save_dir = "./_data/"
     if not(os.path.exists(save_dir)):
         os.makedirs(save_dir)
     save_dir = save_dir+"/"+case
