@@ -30,11 +30,12 @@ class GPE_scalar_field_multirelax:
             self.relax=len(conserve_list)
             self.rel_gamma = np.ones(int(self.relax))
             print("Using relaxation with ",self.relax," constraints")
-            def func2optimize(rel_gamma,u,terms,inv_list_old,*args):
+            def func2optimize(rel_gamma,u,terms,inv_list_old,dt,t,*args):
                # print(rel_gamma.shape,terms.shape,np.dot(rel_gamma,terms).shape)
-                u_gamma = u + np.dot(rel_gamma,terms)
-                inv_list_new = np.array([f(u_gamma,*args) for f in conserve_list])
-                
+                u_gamma = u + np.einsum("i,ijk->jk", rel_gamma, terms)
+                t = t+np.sum(rel_gamma)*dt
+                inv_list_new = np.array([f(u_gamma,t,*args) for f in conserve_list])
+
                 return inv_list_new-inv_list_old
             self.func2optimize = func2optimize       
             self.gamma_0 = np.ones(int(self.relax)) 
@@ -52,7 +53,7 @@ class GPE_scalar_field_multirelax:
         self.K_shape = (self.s,)+self.my_shape
         '''my_shape is the shape of psi e.g. in 2-d case with N grid points in each direction it will be (N,N)
             while K_shape is the shape of K arrays which store the contributions from individual stages hence their shape is like e.g. 2-d case with N gridpoints is [s,N,N]'''
-        #print("class shapes",self.my_shape,self.K_shape)
+        print("class shapes",self.my_shape,self.K_shape)
         
         
         
@@ -106,15 +107,17 @@ class GPE_scalar_field_multirelax:
             else:
                 self.f = self.f + dt*self.ex_A[s_cntr][i]*self.ex_K[i]+ dt*self.im_A[s_cntr][i]*self.im_K[i]
             
-    def update_K(self,s_cntr,dt,*args):
+    def update_K(self,s_cntr,dt,t,*args):
         '''This function stores the contribution from particular stage into K vectors'''
         #print("sncntr ",s_cntr)
        # print("psi shape",self.psi.shape,"f shape",self.f.shape)
         if (s_cntr==0)and(self.relax):
             self.rel_num_sum=0.0
             self.term1 = 0.0
-        self.ex_K[s_cntr,:] = self.ex_rhs(self.f,self.f_t,*args)
-        self.im_K[s_cntr,:] = self.im_rhs(self.f_t,self.f,*args)
+        ex_t = t+self.ex_C[s_cntr]*dt
+        im_t = t+self.im_C[s_cntr]*dt
+        self.ex_K[s_cntr,:] = self.ex_rhs(self.f,self.f_t,ex_t,*args)
+        self.im_K[s_cntr,:] = self.im_rhs(self.f_t,self.f,im_t,*args)
         if(self.relax):
         #    #self.rel_num_sum+= np.sum(np.abs(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f-self.psi)))
             self.rel_num_sum+= np.sum(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f)) +\
@@ -127,7 +130,7 @@ class GPE_scalar_field_multirelax:
             
             
         
-    def sum_contributions(self,dt,*args):
+    def sum_contributions(self,dt,t,*args):
         '''This function sums up the final contributions from all the stages weighted by respective coefficients(B(or b) from Butcher Tableau)'''
         term = np.zeros_like(self.psi)
         term_emb = np.zeros_like(self.psi)
@@ -149,12 +152,12 @@ class GPE_scalar_field_multirelax:
         psi_new = 1.0*self.psi +term
         
         if (self.relax):
-            inv_list_old = np.array([f(self.psi,*args) for f in self.conserve_list])
+            inv_list_old = np.array([f(self.psi,t,*args) for f in self.conserve_list])
             
             
             #print("atrgs",len(args))
             
-            gammas,info,ier,msg = fsolve(self.func2optimize,self.gamma_0,args=(psi_new,terms,inv_list_old,*args),full_output=True,xtol=1e-10)
+            gammas,info,ier,msg = fsolve(self.func2optimize,self.gamma_0,args=(psi_new,terms,inv_list_old,dt,t,*args),full_output=True,xtol=1e-10)
             #if ier!=1:
             #    print("Warning: fsolve did not converge in relaxation step, ier=",ier)
             #    print("info",msg,info["fvec"])
@@ -163,12 +166,8 @@ class GPE_scalar_field_multirelax:
 
             #psi_new = psi_new + np.dot(self.rel_gamma,[term,term_emb])
 
-            psi_new = psi_new + np.dot(self.rel_gamma,terms)
+            psi_new = psi_new + np.einsum("i,ijk->jk", self.rel_gamma, terms)
 
-            
-            
-           
-                
         mass_old = np.sum(np.conj(self.psi)*self.psi)
 
         self.psi = 1.0*psi_new
