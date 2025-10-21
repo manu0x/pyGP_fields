@@ -1,0 +1,62 @@
+\documentclass[]{scrartcl}
+
+\usepackage[utf8]{luainputenc}
+\usepackage[USenglish]{babel}
+
+\title{A brief review of literature on conservative numerical schemes for Schrodinger-Poisson}
+
+\begin{document}
+
+\maketitle
+
+\section{Method properties: conservation, accuracy, and need for algebraic solves}
+It seems that the first work on schemes preserving both mass and energy is that
+of Ringhofer \& Soler \cite{ringhofer2000discrete}.  They mention that there
+are exactly 11 invariants for this system, and motivate the focus on mass and energy
+conservation by referring to "breathing mode solutions".  They mention already that
+the spatial scheme must satisfy "the discrete equivalent of integration by parts",
+and show that combining this with the implicit trapezoidal method in time yields
+conservation.  They consider this approach "too expensive" and replace the time
+integration with a predictor-corrector approach, leading to a scheme that is only
+linearly implicit.  The predictor-corrector scheme doesn't conserve energy, so
+they use something very similar to relaxation to restore that, at the cost of
+solving a scalar algebraic equation at each time step.
+They go into detail about how
+specific choices of differences/averages are needed to get conservation.
+
+Ehrhardt \& Zisowsky \cite{ehrhardt2006fast} use the method of Ringhofer in 3D with spherical
+symmetry and introduce and approach for non-reflecting boundary conditions.
+
+Athanassoulis et. al. \cite{athanassoulis2023novel} give a scheme that is
+linearly implicit and second-order in time, in an approach similar to that
+of Besse for NLS.  In space they use a finite element scheme that I haven't
+looked at closely but presumably is of SBP type.
+
+Nemati et. al. \cite{nemati2025high} use 4th-order compact finite differences in space
+and implicit trapezoidal (2nd-order) in time.  They also use ADI for multidimensional
+solutions.  The scheme is linearly implicit.  They also test a "split step fourier difference"
+method.
+
+The introduction of the paper by Wang et. al. \cite{wang2025point} has a fairly thorough list of references
+on numerical methods for SP, including many that do not conserve mass/energy.
+
+\section{Test problems}
+Ringhofer \& Soler don't do any numerical tests!
+
+Nemati et. al. just do self-convergence tests with simple initial data, in 1/2/3D \cite{nemati2025high}.
+Their examples don't seem to have any physical relevance.
+Wang et. al. also test self-convergence for a simple 2D problem \cite{wang2025point}.
+Athanassoulis et. al. actually give a "cosmological" example, but the initial conditions are not very clear.
+
+\section{Boundary conditions}
+Most papers work with periodic or homogeneous dirichlet boundary conditions.
+Cheng et. al. use perfectly-matched layers \cite{cheng2022fourier}.
+Ehrhardt et. al. formulate a \emph{transparent boundary condition} in terms of a Dirichlet-to-Neumann
+operator and propose discretizations based on different assumptions about the region
+outside the boundary (I haven't read those in detail).
+
+\bibliographystyle{plain}
+\bibliography{refs}
+
+\end{document}
+
