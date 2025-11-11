@@ -13,14 +13,14 @@ import sympy as sp
 import numpy as np
 import sys
 
-cwd = "/".join(os.getcwd().split("/")[:-3])
+cwd = "/".join(os.getcwd().split("/")[:-2])
 sys.path.append(cwd)
 sys.path.append(cwd+"/time_integrators")
 
 
 
-from GPE import GPE_scalar_field_1d2c
-from GPE import GPE_scalar_field_1d2c_relax
+#from GPE import GPE_scalar_field_1d2c
+#from GPE import GPE_scalar_field_1d2c_relax
 from GPE import GPE_scalar_field_multirelax_test
 
 
@@ -166,8 +166,9 @@ def energy(u,t,xi2,kppa,lap_fac):
         return lap_fac*t*E_k - 0.5*kppa*np.sqrt(t)*E_p
         
 
+
    
-def kin_energy(u,xi,kppa,lap_fac,mu):
+def kin_energy(u,xi,kppa,lap_fac,mu,Q=None):
         xix = xi[0]
         xiy = xi[1]
         u_ft = fft(u,u.shape)
@@ -184,7 +185,7 @@ def kin_energy(u,xi,kppa,lap_fac,mu):
 
         return 4.0*lap_fac*lap_fac*E_k 
 
-def pot_energy(u,xi,kppa,lap_fac,mu):
+def pot_energy(u,xi,kppa,lap_fac,mu,Q=None):
         xix = xi[0]
         xiy = xi[1]
         xi2 = xix*xix + xiy*xiy
@@ -194,15 +195,16 @@ def pot_energy(u,xi,kppa,lap_fac,mu):
         V_x = ifft(1j*xix*V_ft,u.shape)
         V_y = ifft(1j*xiy*V_ft,u.shape)
         
-        E_p = np.mean(np.abs(np.conj(V_x)*V_x + np.conj(V_y)*V_y)) ## Potential energy
+        E_p1 = np.mean(np.abs(np.conj(V_x)*V_x + np.conj(V_y)*V_y)) ## Potential energy
 
-        #V = ifft(V_ft,u.shape).real
-        #E_p2 = np.mean(V*(np.square(np.abs(u))-mu))
+        # V = ifft(V_ft,u.shape).real
+        # E_p2 = -np.mean(V*(np.square(np.abs(u))-mu))
+
+        
  
-        #return -2.0*kppa*lap_fac*(E_p+2.0*E_p2)
-        return 2.0*kppa*lap_fac*E_p
-
-
+        
+        #return 2.0*kppa*lap_fac*(2.0*E_p2-E_p1)
+        return 2.0*kppa*lap_fac*E_p1
 
 
 
@@ -211,7 +213,7 @@ def pot_energy(u,xi,kppa,lap_fac,mu):
 
 ############### SP-2d euqtaion   ################################################
 
-def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=None,dx_soln_jx=None,relax=False,log_errs=False,lap_fac=1.0,num_plots=100,p=3.0,
+def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,L,imx,inv_list,u_ini,exact_soln_np=None,dx_soln_jx=None,relax=False,log_errs=False,lap_fac=1.0,num_plots=100,p=3.0,
                     data_dir=None):
     
     dim_n = len(X)
@@ -244,8 +246,7 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
         xix = xi[0]
         xiy = xi[1]
         xi2 = xix*xix + xiy*xiy
-    #rho = u[:m]; q = u[m:];
-        q0 = u
+   
         v = np.zeros_like(u)
         q0hat = uft
      
@@ -267,17 +268,18 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
                 
                 if relax>1:
                     t_half = t+0.5*(1.0+np.sum(rel_gamma))*dt
+                    dt_now = (1.0+np.sum(rel_gamma))*dt
                     #if t<3e-3:
                     #    print("Time updated to ", t_half,rel_gamma)
                     #print("t_half",t_half,np.sum(rel_gamma))
-                    p = 1.0/((1.0+np.sum(rel_gamma))*dt)#/(np.sqrt(t_half)*t_half)#(1.0/np.power(t,1.5))
-                    q = t_half/((1.0+np.sum(rel_gamma))*dt)#(1.0/np.sqrt(t_half))
+                    p = 1.0#/(np.sqrt(t_half)*t_half)#(1.0/np.power(t,1.5))
+                    q = t_half#(1.0/np.sqrt(t_half))
                     #print(p,q)
                     
                     Ek_new = kin_energy(u_gamma,*args)
                     Ev_new = pot_energy(u_gamma,*args)
 
-                    inv_func = np.array([(mass_new-inv_list_old[0]),p*(Ek_new-inv_list_old[1])-q*(Ev_new-inv_list_old[2])])
+                    inv_func = np.array([(mass_new-inv_list_old[0]),p*(Ek_new-inv_list_old[1])- q*(Ev_new-inv_list_old[2])])
                     #print(inv_func)
                 else:
                     inv_func = mass_new-inv_list_old[0]
@@ -307,6 +309,7 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
     mass_l = []
     mass_err_l=[]
     energy_err_l = []
+    int_energy_err_l =[]
 
     
 
@@ -323,7 +326,7 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
 
     
     #print("Ini invariant", inv_ini)
-    print_list = [0.023,0.033,0.088]
+    print_list = [0.023,0.033,0.088,0.00001,0.00002]
     compare_print_cntr=0
     
     n=0
@@ -333,7 +336,7 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
     tt.append(t)
     
     mass_ini = np.mean(np.abs(u_ini[:,0])**2)
-    mu = mass_ini
+    mu = mass_ini#*L*L
     print("initial mass is",mass_ini)
     ke_last = kin_energy(rhoq.psi,Xi,kppa,lap_fac,mu)
     pe_last = pot_energy(rhoq.psi,Xi,kppa,lap_fac,mu)
@@ -341,12 +344,23 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
     np.savez(data_dir+"/frame_"+str(print_cntr),frame=rhoq.psi)
    
     while (t<=tmax):
+        p_last = 1.0
+        q_last = t
         #print(n)
+        Q_int=0.0
         for k in range(imx.s):
             rhoq.update_stage_sum(k,dt)
             im_t = t+rhoq.im_C[k]*dt
             lap_t = np.power(im_t,-1.5)
             rhoq.do_fft(k,lmbda*lap_t,dt)
+
+            E_k = kin_energy(rhoq.f,Xi,kppa,lap_fac,mu)
+            E_v = pot_energy(rhoq.f,Xi,kppa,lap_fac,mu)
+
+            p_t = 0.0#-1.0/np.power(im_t,2.5)
+            q_t = 1.0#-0.5/np.power(im_t,1.5)
+            
+            Q_int+= rhoq.ex_B[k]*(p_t*(E_k)-q_t*(E_v))*dt
 
             rhoq.update_K(k,dt,t,Xi,kppa,lap_fac,mu)
            
@@ -363,14 +377,27 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
         else:
             t_m = t+0.5*dt
             t = t+dt
-        p = 1.0/np.power(t_m,1.5)
-        q = 1.0/np.sqrt(t_m)
+        pm = 1.0
+        qm = t_m
+
+        p = 1.0
+        q = t
         
         u = rhoq.psi
         ke = kin_energy(u,Xi,kppa,lap_fac,mu)
         pe = pot_energy(u,Xi,kppa,lap_fac,mu)
 
-        eq_E = p*(ke-ke_last)-q*(pe-pe_last)
+        eq_E = pm*(ke-ke_last)-qm*(pe-pe_last)
+        #############
+        int_eq_E_new = p*(ke)-q*(pe)
+        int_eq_E_last = p_last*(ke_last)-q_last*(pe_last)
+
+        int_eq_E = int_eq_E_new-int_eq_E_last-Q_int
+        ###############
+        if relax:
+             eq_E = eq_E/((1.0+np.sum(rhoq.rel_gamma))*dt)
+        else:
+             eq_E = eq_E/dt
         ke_last = ke
         pe_last = pe
         
@@ -379,18 +406,18 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
                 print("NaN detected at time ",t,"at time step",n)
                 if data_dir is not None:
                     np.savez(data_dir+"/frame_"+str(print_cntr),frame=rhoq.psi)
-                return frames,tt,inv_change_dic,mass_l,mass_err_l,energy_err_l
+                return frames,tt,inv_change_dic,mass_l,mass_err_l,energy_err_l,int_energy_err_l
         elif relax:
             if (1.0+np.sum(rhoq.rel_gamma))<1e-5:
                 print("Gamma upfdate too small",(1.0+np.sum(rhoq.rel_gamma)))
                 if data_dir is not None:
                     np.savez(data_dir+"/frame_"+str(print_cntr),frame=rhoq.psi)
-                return frames,tt,inv_change_dic,mass_l,mass_err_l,energy_err_l
+                return frames,tt,inv_change_dic,mass_l,mass_err_l,energy_err_l,int_energy_err_l
         if print_cntr>500:
             print("Too many stpes",print_cntr)
             if data_dir is not None:
                     np.savez(data_dir+"/frame_"+str(print_cntr),frame=rhoq.psi)
-            return frames,tt,inv_change_dic,mass_l,mass_err_l,energy_err_l
+            return frames,tt,inv_change_dic,mass_l,mass_err_l,energy_err_l,int_energy_err_l
         
         # elif relax:
         #     if np.min(rhoq.rel_gamma)<(1e-10):
@@ -430,6 +457,7 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
             energy_violation = np.abs(eq_E)
             mass_err_l.append(mass_relative_change)
             energy_err_l.append(energy_violation)
+            int_energy_err_l.append(int_eq_E)
 
             print("Mass",mass_now,mass_relative_change,energy_violation)
             tt.append(t)
@@ -488,5 +516,5 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
    # mass_l.append(mass)
    # mass_err_l.append(mass_err)
        
-    return frames,tt,inv_change_dic,mass_l,mass_err_l,energy_err_l
+    return frames,tt,inv_change_dic,mass_l,mass_err_l,energy_err_l,int_energy_err_l
 

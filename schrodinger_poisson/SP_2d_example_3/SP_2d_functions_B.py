@@ -13,7 +13,7 @@ import sympy as sp
 import numpy as np
 import sys
 
-cwd = "/".join(os.getcwd().split("/")[:-3])
+cwd = "/".join(os.getcwd().split("/")[:-2])
 sys.path.append(cwd)
 sys.path.append(cwd+"/time_integrators")
 
@@ -144,7 +144,7 @@ def mass(u,xi2,kppa,lap_fac,mu,Q=None):
         
     
         q0 = u
-        q0sqr = np.square(np.abs(q0))
+  
    
 
         v = np.mean(np.conj(q0)*q0)
@@ -152,96 +152,92 @@ def mass(u,xi2,kppa,lap_fac,mu,Q=None):
 
         return np.abs(v)#-0.5*np.sum(q0sqr+tau*q1sqr)
 
+        
 
-def energy(u,t,xi2,kppa,lap_fac,Q=None):
-        u_ft = fft(u,u.shape)
-        
-        V_ft = -fft(np.square(np.abs(u)),u.shape)/(xi2+1e-14) ## Poisson eqn. in FT space
-        V_ft[0] = 0.0 
-        
-        E_p = np.sum(xi2*np.abs(V_ft)**2)  ## Potential energy
-
-        
-        E_k = np.sum(xi2*np.abs(u_ft)**2)  ## Kinetic energy
-
-        return lap_fac*t*E_k - 0.5*kppa*np.sqrt(t)*E_p
-        
 
 
 def kin_energy_1(u,xi,kppa,lap_fac,mu,Q=None):
-        
-        xix = xi[0]
-        xiy = xi[1]
-        xi2 = xix*xix + xiy*xiy
-
-        u_ft = fft(u,u.shape)
-        
-        
-        
-      
-
-        
-        E_k = np.mean(xi2*np.abs(u_ft)**2)  ## Kinetic energy
-
-        return 4.0*lap_fac*lap_fac*E_k 
-
-def pot_energy_1(u,xi,kppa,lap_fac,mu,Q=None):
-        
-        xix = xi[0]
-        xiy = xi[1]
-        xi2 = xix*xix + xiy*xiy
-        
-        V_ft = -fft(np.square(np.abs(u))-mu,u.shape)/(xi2+1e-14) ## Poisson eqn. in FT space
-        V_ft[0,0] = 0.0 
-        
-        E_p = np.mean(xi2*np.abs(V_ft)**2)  ## Potential energy
-
-        
- 
-
-        return 2.0*kppa*lap_fac*E_p
-
-
-
-
-   
-def kin_energy(u,xi,kppa,lap_fac,mu,Q=None):
         xix = xi[0]
         xiy = xi[1]
         u_ft = fft(u,u.shape)
         
+        ##################################################### EP 1 #################################
         u_x = ifft(1j*xix*u_ft,u.shape)
         u_y = ifft(1j*xiy*u_ft,u.shape)
-
-        
-        
-      
-
-        
         E_k = np.mean(np.abs(np.conj(u_x)*u_x + np.conj(u_y)*u_y)) ## Kinetic energy
 
-        return 4.0*lap_fac*lap_fac*E_k 
 
-def pot_energy(u,xi,kppa,lap_fac,mu,Q=None):
+
+
+
+        return 4.0*lap_fac*lap_fac*E_k   ## If EP1 is used
+
+
+def pot_energy_1(u,xi,kppa,lap_fac,mu,Q=None):
         xix = xi[0]
         xiy = xi[1]
         xi2 = xix*xix + xiy*xiy
         V_ft = -fft(np.square(np.abs(u))-mu,u.shape)/(xi2+1e-14) ## Poisson eqn. in FT space
         V_ft[0,0] = 0.0 
 
+        ################################### EP 1#################################
         V_x = ifft(1j*xix*V_ft,u.shape)
         V_y = ifft(1j*xiy*V_ft,u.shape)
         
         E_p = np.mean(np.abs(np.conj(V_x)*V_x + np.conj(V_y)*V_y)) ## Potential energy
 
-        #V = ifft(V_ft,u.shape).real
-        #E_p2 = np.mean(V*(np.square(np.abs(u))-mu))
- 
-        #return -2.0*kppa*lap_fac*(E_p+2.0*E_p2)
-        return 2.0*kppa*lap_fac*E_p
+        ############################################# EP 2#################################
+
+       
+        
+        return 2.0*kppa*lap_fac*E_p    #if E_p1 is used         
+        
+        
 
 
 
+
+   
+def kin_energy_2(u,xi,kppa,lap_fac,mu,Q=None):
+        xix = xi[0]
+        xiy = xi[1]
+        u_ft = fft(u,u.shape)
+    
+        xi2 = xix*xix + xiy*xiy
+        D2_u = ifft(-u_ft*(xi2),u.shape)
+        E_k = -np.mean(np.conj(u)*D2_u).real  ## Kinetic energy
+
+
+
+
+        return 4.0*lap_fac*lap_fac*E_k  ## If EP2 is used
+
+def pot_energy_2(u,xi,kppa,lap_fac,mu,Q=None):
+        xix = xi[0]
+        xiy = xi[1]
+        xi2 = xix*xix + xiy*xiy
+        V_ft = -fft(np.square(np.abs(u))-mu,u.shape)/(xi2+1e-14) ## Poisson eqn. in FT space
+        V_ft[0,0] = 0.0 
+
+
+        V = ifft(V_ft,u.shape).real
+        E_p = -np.mean(V*(np.square(np.abs(u))-mu))
+              
+        return 2.0*kppa*lap_fac*E_p   #if E_p2 is used
+
+        
+
+def energy_1(t,u,xi,kppa,lap_fac,mu,Q=None):
+
+    E_k = kin_energy_1(u,xi,kppa,lap_fac,mu,Q)
+    E_p = pot_energy_1(u,xi,kppa,lap_fac,mu,Q)
+    return E_k - E_p*t
+
+def energy_2(t,u,xi,kppa,lap_fac,mu,Q=None):
+
+    E_k = kin_energy_2(u,xi,kppa,lap_fac,mu,Q)
+    E_p = pot_energy_2(u,xi,kppa,lap_fac,mu,Q)
+    return E_k - E_p*t
 
 def Q_dummy(u,xi2,kppa,lap_fac,mu,Q):
      
@@ -251,9 +247,27 @@ def Q_dummy(u,xi2,kppa,lap_fac,mu,Q):
 ############################################################hjjdhkckdjhcdjhdjkcd
 ############### SP-2d euqtaion   ################################################
 
-def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=None,dx_soln_jx=None,relax=False,log_errs=False,lap_fac=1.0,num_plots=100,p=3.0,
+def run_SP_2d_example_1(energy_type,dt,X,Xi,kppa,t_ini,T,L,imx,inv_list,u_ini,exact_soln_np=None,dx_soln_jx=None,relax=False,log_errs=False,lap_fac=1.0,num_plots=100,p=3.0,
                     data_dir=None):
+
+    energy_func_list = [energy_1, energy_2]
+    kin_energy_func_list = [kin_energy_1, kin_energy_2]
+    pot_energy_func_list = [pot_energy_1, pot_energy_2]
     
+    if energy_type =="E1":
+        energy = energy_1
+        rel_kin_energy = kin_energy_1
+        rel_pot_energy = pot_energy_1
+        energy_int=0
+    elif energy_type=="E2":
+        energy = energy_2
+        rel_kin_energy = kin_energy_2
+        rel_pot_energy = pot_energy_2
+        energy_int=1
+    else:
+        print("Choose correct energy type 1 or 2")
+        return None
+
     dim_n = len(X)
     x=X[0]
     y=X[1]
@@ -272,7 +286,7 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
         xiy = xi[1]
         xi2 = xix*xix + xiy*xiy
     #rho = u[:m]; q = u[m:];
-        q0 = u
+       
         v = np.zeros_like(u)
         q0hat = uft
      
@@ -300,7 +314,7 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
 
 
 
-    def func2optimize_SP(rel_gamma,u,terms,inv_list_old,dt,t,*args):
+    def func2optimize_SP_1(rel_gamma,u,terms,inv_list_old,dt,t,*args):
                # print(rel_gamma.shape,terms.shape,np.dot(rel_gamma,terms).shape)
                 u_gamma = u + np.einsum("i,ijk->jk", rel_gamma, terms)
                 mass_new = np.mean(np.abs(u_gamma)**2)
@@ -318,8 +332,8 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
 
                     Q_old = p*inv_list_old[1]-q*inv_list_old[2]
 
-                    Ek_new = kin_energy(u_gamma,*args)
-                    Ev_new = pot_energy(u_gamma,*args)
+                    Ek_new = kin_energy_1(u_gamma,*args)
+                    Ev_new = pot_energy_1(u_gamma,*args)
                     Q_new = p_new*(Ek_new)-q_new*(Ev_new)
                     #print(p,q,p_new,q_new,Q_old,Q_new)
 
@@ -329,6 +343,40 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
                     inv_func = mass_new-inv_list_old[0]
                 return inv_func
     
+    def func2optimize_SP_2(rel_gamma,u,terms,inv_list_old,dt,t,*args):
+               # print(rel_gamma.shape,terms.shape,np.dot(rel_gamma,terms).shape)
+                u_gamma = u + np.einsum("i,ijk->jk", rel_gamma, terms)
+                mass_new = np.mean(np.abs(u_gamma)**2)
+                #print(inv_list_old[-1])
+                
+                if relax>1:
+
+                    p = 1.0
+                    q = t
+                    
+
+                    tn = t+(1.0+np.sum(rel_gamma))*dt
+                    p_new = 1.0#np.power(t,-1.5)
+                    q_new = tn#np.sqrt(t)#1.0/np.sqrt(t)
+
+                    Q_old = p*inv_list_old[1]-q*inv_list_old[2]
+
+                    Ek_new = kin_energy_2(u_gamma,*args)
+                    Ev_new = pot_energy_2(u_gamma,*args)
+                    Q_new = p_new*(Ek_new)-q_new*(Ev_new)
+                    #print(p,q,p_new,q_new,Q_old,Q_new)
+
+                    inv_func = np.array([mass_new-inv_list_old[0],Q_new-Q_old-inv_list_old[-1]])
+                    #inv_func = np.array([mass_new-inv_list_old[0],p*(Ek_new-inv_list_old[1])-q*(Ev_new-inv_list_old[2])])
+                else:
+                    inv_func = mass_new-inv_list_old[0]
+                return inv_func
+    
+
+    if energy_type ==2:
+        func2optimize_SP = func2optimize_SP_2
+    else:
+        func2optimize_SP = func2optimize_SP_1
     
             
 
@@ -360,11 +408,11 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
     
     #rhoq = GPE_scalar_field_1d2c(m,2,rhs_linear,rhs_nonlinear,imx,u_ini)
     if relax==2:
-        rhoq = GPE_scalar_field_multirelax_test(2,m,rhs_linear,rhs_nonlinear,imx,u_ini[:,0],relax=2,conserve_list=[mass,kin_energy,pot_energy,Q_dummy],func2optimize=func2optimize_SP)
+        rhoq = GPE_scalar_field_multirelax_test(2,m,rhs_linear,rhs_nonlinear,imx,u_ini,relax=2,conserve_list=[mass,rel_kin_energy,rel_pot_energy,Q_dummy],func2optimize=func2optimize_SP)
     elif relax==1:
-        rhoq = GPE_scalar_field_multirelax_test(2,m,rhs_linear,rhs_nonlinear,imx,u_ini[:,0],relax=1,conserve_list=[mass],func2optimize=func2optimize_SP)
+        rhoq = GPE_scalar_field_multirelax_test(2,m,rhs_linear,rhs_nonlinear,imx,u_ini,relax=1,conserve_list=[mass],func2optimize=func2optimize_SP)
     else:
-        rhoq = GPE_scalar_field_multirelax_test(2,m,rhs_linear,rhs_nonlinear,imx,u_ini[:,0])
+        rhoq = GPE_scalar_field_multirelax_test(2,m,rhs_linear,rhs_nonlinear,imx,u_ini)
     
 
     
@@ -376,16 +424,20 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
     print_cntr=0
 
     t=t_ini
-    frames = [u_ini[:,0],]
+    frames = [u_ini,]
     tt.append(t)
 
-    mass_ini = np.mean(np.abs(u_ini[:,0])**2)
-    mu = mass_ini
-    ke_last = kin_energy(rhoq.psi,Xi,kppa,lap_fac,mu)
-    pe_last = pot_energy(rhoq.psi,Xi,kppa,lap_fac,mu)
+    mass_ini = np.mean(np.abs(u_ini)**2)
+    print("Initial mass is",mass_ini,L)
+    mu = mass_ini#*L*L
 
-    np.savez(data_dir+"/frame_"+str(print_cntr),frame=rhoq.psi)
+    #energy_ini = energy_1(t_ini, u_ini, Xi, kppa, lap_fac, mu)
+    ke_last = [kin_energy(rhoq.psi,Xi,kppa,lap_fac,mu)  for kin_energy in kin_energy_func_list]
+    pe_last = [pot_energy(rhoq.psi,Xi,kppa,lap_fac,mu)  for pot_energy in pot_energy_func_list]
 
+    np.savez(data_dir+"/frame_initial",frame=rhoq.psi)
+
+    print("B sum",np.sum(rhoq.ex_B),"mu",mu)
     
     
     while (t<=tmax):
@@ -395,20 +447,28 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
         q_last = t
         
         #print(n)
-        Q_int = 0.0
+        Q_int = 0.0*np.ones(len(energy_func_list))
+        Q_int_rel = 0.0
         for k in range(imx.s):
             rhoq.update_stage_sum(k,dt)
+
             im_t = t+rhoq.im_C[k]*dt
             lap_t = np.power(im_t,-1.5)
+
+            
             rhoq.do_fft(k,lmbda*lap_t,dt)
 
-            E_k = kin_energy(rhoq.f,Xi,kppa,lap_fac,mu)
-            E_v = pot_energy(rhoq.f,Xi,kppa,lap_fac,mu)
+            E_k = [kin_energy(rhoq.f,Xi,kppa,lap_fac,mu) for kin_energy in kin_energy_func_list]
+            E_v = [pot_energy(rhoq.f,Xi,kppa,lap_fac,mu) for pot_energy in pot_energy_func_list]
 
             p_t = 0.0#-1.0/np.power(im_t,2.5)
             q_t = 1.0#-0.5/np.power(im_t,1.5)
-            
-            Q_int+= rhoq.ex_B[k]*(p_t*(E_k)-q_t*(E_v))*dt
+            jj=0
+            for E_kc_c,E_vc_c in zip(E_k,E_v):
+                Q_int[jj]+= rhoq.ex_B[k]*(p_t*(E_kc_c)-q_t*(E_vc_c))*dt
+                if energy_int==jj:
+                    Q_int_rel += rhoq.ex_B[k]*(p_t*(E_kc_c)-q_t*(E_vc_c))*dt
+                jj+=1
             #print("Q_int:", Q_int)
 
             # if (im_t<10.0*dt):
@@ -416,10 +476,10 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
 
             rhoq.update_K(k,dt,t,Xi,kppa,lap_fac,mu)
            
-            
-            
-           
-        rhoq.sum_contributions(dt,t,Xi,kppa,lap_fac,mu,Q_int)
+
+
+        #print("Q_int:", Q_int)
+        rhoq.sum_contributions(dt,t,Xi,kppa,lap_fac,mu,Q_int_rel)
         
         
         if relax:
@@ -436,16 +496,17 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
         q_m = t_m
         
         u = rhoq.psi
-        ke = kin_energy(u,Xi,kppa,lap_fac,mu)
-        pe = pot_energy(u,Xi,kppa,lap_fac,mu)
+        ke = [kin_energy(u,Xi,kppa,lap_fac,mu) for kin_energy in kin_energy_func_list]
+        pe = [pot_energy(u,Xi,kppa,lap_fac,mu) for pot_energy in pot_energy_func_list]
 
-        eq_E_new = p*(ke)-q*(pe)
-        eq_E_last = p_last*(ke_last)-q_last*(pe_last)
+        eq_E_new = [p*(ke_c)-q*(pe_c) for ke_c,pe_c in zip(ke,pe)]
+        eq_E_last = [p_last*(ke_last_c)-q_last*(pe_last_c) for ke_last_c,pe_last_c in zip(ke_last,pe_last)]
 
-        eq_E = eq_E_new-eq_E_last-Q_int
-
-        eq_E_fd = (p_m*(ke-ke_last)-q_m*(pe-pe_last))/((1.0+np.sum(rhoq.rel_gamma))*dt)
-
+        eq_E = [eq_E_new_c-eq_E_last_c-Q_int_c for eq_E_new_c,eq_E_last_c,Q_int_c in zip(eq_E_new,eq_E_last,Q_int)]
+        if relax:
+            eq_E_fd = (p_m*(ke[energy_int]-ke_last[energy_int])-q_m*(pe[energy_int]-pe_last[energy_int]))/((1.0+np.sum(rhoq.rel_gamma))*dt)
+        else:
+            eq_E_fd = (p_m*(ke[energy_int]-ke_last[energy_int])-q_m*(pe[energy_int]-pe_last[energy_int]))/dt
         ke_last = ke
         pe_last = pe
         
@@ -457,7 +518,7 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
                      print("Too many steps",print_cntr)
                 if data_dir is not None:
                     np.savez(data_dir+"/frame_"+str(print_cntr),frame=rhoq.psi)
-                return frames,tt,inv_change_dic,mass_l,mass_err_l,energy_err_l
+                return frames,tt,inv_change_dic,mass_l,mass_err_l,energy_err_l,eq_Fd_list
         # elif relax:
         #     if np.min(rhoq.rel_gamma)<(1e-10):
         #         print("Relaxation parameter too small at time ",t,"at time step",n)
@@ -466,21 +527,23 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
         #         return frames,tt,inv_change_dic,mass_err_l
 
         if (t>(print_list[compare_print_cntr]-0.5*dt) and t<(print_list[compare_print_cntr]+0.5*dt)  ):
-             np.savez(data_dir+"/frame_"+str(print_list[compare_print_cntr]),frame=rhoq.psi)
+             np.savez(data_dir+"/fm_"+str(t)[:6],frame=rhoq.psi)
              print("###############################################")
              print("Writing data at",print_list[compare_print_cntr])
              print("###############################################")
              compare_print_cntr=compare_print_cntr+1
              
-        
+        #print("Time ",t," step ","Gamma",n,np.sum(rhoq.rel_gamma),rhoq.rel_gamma)
         if (np.mod(n,nplt)) == 0 :
             #print("Time ",t," step ",n,rhoq.rel_gamma,np.sum(rhoq.rel_gamma))
             if relax:
-                 print("Time ",t," step ",n,1.0+np.sum(rhoq.rel_gamma),rhoq.rel_gamma)
+                 print("Time ",t," step ","Gamma",n,np.sum(rhoq.rel_gamma),rhoq.rel_gamma)
+            else:
+                 print("Time ",t," step ",n,)#1.0+np.sum(rhoq.rel_gamma),rhoq.rel_gamma)
             u = rhoq.psi
             print_cntr+=1
             if data_dir is not None:
-                np.savez(data_dir+"/frame_"+str(print_cntr),frame=rhoq.psi)
+                np.savez(data_dir+"/frame_"+str(t)[:6],frame=rhoq.psi)
             else:
                 frames.append(rhoq.psi)
             
@@ -493,7 +556,7 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
             
             
             mass_l.append(mass_now)
-            energy_violation = np.abs(eq_E)
+            energy_violation = [np.abs(eq_E_c) for eq_E_c in eq_E]
             mass_err_l.append(mass_relative_change)
             energy_err_l.append(energy_violation)
             eq_Fd_list.append(np.abs(eq_E_fd))
@@ -540,8 +603,8 @@ def run_SP_2d_example_1(dt,X,Xi,kppa,t_ini,T,imx,inv_list,u_ini,exact_soln_np=No
     mass_now = np.mean(np.abs(u)**2)
     mass_change = np.abs(mass_now-mass_ini)
     mass_relative_change = mass_change/(mass_ini+1e-12)
-            
-    energy_violation = np.abs(eq_E)
+
+    energy_violation = [np.abs(eq_E_c) for eq_E_c in eq_E]
     mass_err_l.append(mass_relative_change)
     energy_err_l.append(energy_violation)
 
