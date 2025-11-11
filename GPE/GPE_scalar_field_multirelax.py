@@ -1,9 +1,10 @@
 import numpy as np
 from scipy.optimize import fsolve
+from scipy.optimize import root
 
-class GPE_scalar_field_multirelax:
+class GPE_scalar_field_multirelax_test:
     '''This class stores the variables for a complex scalar field and necessary utilities for solving associated GPE-like PDE using ImEx RK methods '''
-    def __init__(self,dim,N,im_rhs=None,ex_rhs=None,imx=None,ini_psi=None,relax=0,conserve_list=[]):
+    def __init__(self,dim,N,im_rhs=None,ex_rhs=None,imx=None,ini_psi=None,relax=0,conserve_list=[],func2optimize=None):
         '''Initializer function, takes following arguments:
           1) dim->Dimension of space(1d, 2d or 3d)
           2) N-> no. of grid points along each direction
@@ -27,18 +28,21 @@ class GPE_scalar_field_multirelax:
 
         self.conserve_list = conserve_list
         if len(conserve_list)>0:
-            self.relax=len(conserve_list)
+            self.relax= relax#len(conserve_list)
             self.rel_gamma = np.ones(int(self.relax))
             print("Using relaxation with ",self.relax," constraints")
-            def func2optimize(rel_gamma,u,terms,inv_list_old,dt,t,*args):
-               # print(rel_gamma.shape,terms.shape,np.dot(rel_gamma,terms).shape)
-                u_gamma = u + np.einsum("i,ijk->jk", rel_gamma, terms)
-                t = t+np.sum(rel_gamma)*dt
-                inv_list_new = np.array([f(u_gamma,t,*args) for f in conserve_list])
+            # def func2optimize(rel_gamma,u,terms,inv_list_old,dt,t,*args):
+            #    # print(rel_gamma.shape,terms.shape,np.dot(rel_gamma,terms).shape)
+            #     u_gamma = u + np.einsum("i,ijk->jk", rel_gamma, terms)
+            #     t_half = t+0.5*np.sum(rel_gamma)*dt
+            #     t = t+0.5*np.sum(rel_gamma)*dt
+            #     inv_list_new = np.array([f(u_gamma,t,*args) for f in conserve_list])
 
-                return inv_list_new-inv_list_old
-            self.func2optimize = func2optimize       
-            self.gamma_0 = np.ones(int(self.relax)) 
+            #     return inv_list_new-inv_list_old
+            
+
+            self.func2optimize = func2optimize
+            self.gamma_0 = np.zeros(int(self.relax))
         else:
             self.relax=0
             print("Not using relaxation")    
@@ -118,12 +122,12 @@ class GPE_scalar_field_multirelax:
         im_t = t+self.im_C[s_cntr]*dt
         self.ex_K[s_cntr,:] = self.ex_rhs(self.f,self.f_t,ex_t,*args)
         self.im_K[s_cntr,:] = self.im_rhs(self.f_t,self.f,im_t,*args)
-        if(self.relax):
-        #    #self.rel_num_sum+= np.sum(np.abs(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f-self.psi)))
-            self.rel_num_sum+= np.sum(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f)) +\
-                            np.sum((self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*np.conj(self.f))
-            self.term1+=( np.sum(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f))  +\
-                            np.sum((self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*np.conj(self.f)))
+        # if(self.relax>2):
+        # #    #self.rel_num_sum+= np.sum(np.abs(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f-self.psi)))
+        #     self.rel_num_sum+= np.sum(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f)) +\
+        #                     np.sum((self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*np.conj(self.f))
+        #     self.term1+=( np.sum(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f))  +\
+        #                     np.sum((self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*np.conj(self.f)))
             #self.rel_num_sum+=np.sum((self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr]).real *(self.f-self.psi).real)
             #print(np.abs(np.sum(np.conj(self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr])*(self.f-self.psi))),np.sum((self.ex_B[s_cntr]*self.ex_K[s_cntr]+ self.im_B[s_cntr]*self.im_K[s_cntr]).real *(self.f-self.psi).real))
 
@@ -152,17 +156,36 @@ class GPE_scalar_field_multirelax:
         psi_new = 1.0*self.psi +term
         
         if (self.relax):
-            inv_list_old = np.array([f(self.psi,t,*args) for f in self.conserve_list])
-            
-            
+            inv_list_old = np.array([f(self.psi,*args) for f in self.conserve_list])
+            #print("inv_list_old",inv_list_old.shape)
             #print("atrgs",len(args))
             
-            gammas,info,ier,msg = fsolve(self.func2optimize,self.gamma_0,args=(psi_new,terms,inv_list_old,dt,t,*args),full_output=True,xtol=1e-10)
-            #if ier!=1:
-            #    print("Warning: fsolve did not converge in relaxation step, ier=",ier)
-            #    print("info",msg,info["fvec"])
-            self.rel_gamma = gammas
-            self.gamma_0 = 1.0*gammas
+            ###############
+
+            sol = root(self.func2optimize,self.gamma_0,args=(psi_new,terms,inv_list_old,dt,t,*args), method='hybr',tol=1e-14)
+            self.rel_gamma = sol.x
+            
+            if not(sol.success) and np.max(np.abs(sol.fun))>1e-10:
+                print("Opt warn:: func value",sol.fun)
+                print(sol.message)
+                self.rel_gamma = self.gamma_0
+            else:
+                self.gamma_0 = sol.x
+
+            #############
+            
+            # gammas,info,ier,msg = fsolve(self.func2optimize,self.gamma_0,args=(psi_new,terms,inv_list_old,dt,t,*args),full_output=True,xtol=1e-14)
+            # if ier!=1 and np.mean(np.abs(info["fvec"]))>1e-12 :
+            #     print("Warning: fsolve did not converge in relaxation step, ier=",ier)
+            # #     #print("info",msg)
+            #     print(info["nfev"],info["fvec"])
+            # #     print("              ",1.0+np.sum(gammas))
+            # self.rel_gamma = gammas
+            # # if np.mean(np.abs(info["fvec"]))>1e-8:
+            # #     self.rel_gamma=0.0*gammas
+            # self.gamma_0 = 1.0*gammas
+
+
 
             #psi_new = psi_new + np.dot(self.rel_gamma,[term,term_emb])
 
